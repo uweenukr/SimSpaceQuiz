@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: drupal
+  labels:
+    app: drupal
+spec:
+  ports:
+    - port: 80
+  selector:
+    app: drupal
+    tier: frontend
+  type: NodePort
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: drupal-pv-volume
+  labels:
+    type: local
+    app: drupal
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/mnt/data"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: drupal-pv-claim
+  labels:
+    app: drupal
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drupal
+  labels:
+    app: drupal
+    type: application
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drupal
+  template:
+    metadata:
+      labels:
+        app: drupal
+        tier: frontend
+    spec:
+      containers:
+        - image: drupal:latest
+          name: drupal
+          ports:
+            - containerPort: 80
+              name: drupal
+          env:
+            - name: DB_HOST
+              value: mariadb
+            - name: DB_NAME
+              value: drupal
+            - name: DB_USER
+              value: drupal
+            - name: DB_PASSWORD
+              value: drupal
+          volumeMounts:
+            - mountPath: /var/lib/drupal/data
+              name: drupal-storage
+
+      volumes:
+        - name: drupal-storage
+          persistentVolumeClaim:
+            claimName: drupal-pv-claim
